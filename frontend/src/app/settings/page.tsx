@@ -1,267 +1,160 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Save, Globe, AlertCircle, CheckCircle, Info, ExternalLink, Settings as SettingsIcon } from 'lucide-react';
-import { Settings } from '@/types';
+import { useState } from 'react';
+import Link from 'next/link';
 
-export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    documentationUrl: '',
-    isConfigured: false,
-  });
-  
-  const [isValidUrl, setIsValidUrl] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+export default function Settings() {
+  const [url, setUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('docubot-settings');
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        setSettings(parsed);
-      } catch (error) {
-        console.error('Failed to parse saved settings:', error);
-      }
-    }
-  }, []);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url.trim()) return;
 
-  const validateUrl = (url: string): boolean => {
-    if (!url.trim()) return true; // Empty URL is valid (just not configured)
-    
+    setIsLoading(true);
+    setMessage(null);
+
     try {
-      const urlObj = new URL(url);
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch {
+      // Simulate API call to process URL
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setMessage({
+        type: 'success',
+        text: `Successfully added "${url}" to the knowledge base. The documentation is being indexed and will be available for chat shortly.`
+      });
+      setUrl('');
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: 'Failed to process the URL. Please check if the URL is accessible and try again.'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isValidUrl = (string: string) => {
+    try {
+      new URL(string);
+      return true;
+    } catch (_) {
       return false;
     }
   };
 
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newUrl = e.target.value;
-    setSettings(prev => ({ ...prev, documentationUrl: newUrl }));
-    setIsValidUrl(validateUrl(newUrl));
-    setSaveStatus('idle');
-  };
-
-  const handleSave = async () => {
-    if (!isValidUrl || isSaving) return;
-    
-    setIsSaving(true);
-    setSaveStatus('idle');
-
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const updatedSettings: Settings = {
-        ...settings,
-        isConfigured: settings.documentationUrl.trim() !== '',
-        lastUpdated: new Date(),
-      };
-
-      // Save to localStorage
-      localStorage.setItem('docubot-settings', JSON.stringify(updatedSettings));
-      setSettings(updatedSettings);
-      setSaveStatus('success');
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      setSaveStatus('error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleReset = () => {
-    setSettings({
-      documentationUrl: '',
-      isConfigured: false,
-    });
-    localStorage.removeItem('docubot-settings');
-    setSaveStatus('idle');
-    setIsValidUrl(true);
-  };
-
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <SettingsIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              Settings
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Configure your documentation source
-            </p>
-          </div>
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+          <Link 
+            href="/"
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Back to Chat
+          </Link>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="space-y-8">
-        {/* Documentation URL Section */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center space-x-2 mb-3">
-                <Globe className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                  Documentation Source
-                </h2>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Enter the URL of the documentation website you want DocuBot to learn from.
-              </p>
-            </div>
+      <div className="max-w-2xl mx-auto py-8 px-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              Add Documentation Source
+            </h2>
+            <p className="text-sm text-gray-600">
+              Enter a URL to crawl and index documentation. This will be used as context for the chatbot.
+            </p>
+          </div>
 
-            {/* URL Input */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="documentation-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
                 Documentation URL
               </label>
-              <div className="relative">
-                <input
-                  id="documentation-url"
-                  type="url"
-                  value={settings.documentationUrl}
-                  onChange={handleUrlChange}
-                  placeholder="https://docs.example.com"
-                  className={`w-full px-4 py-3 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
-                    !isValidUrl 
-                      ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/10' 
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {!isValidUrl && (
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                  </div>
-                )}
-              </div>
-              {!isValidUrl && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  Please enter a valid URL starting with http:// or https://
-                </p>
+              <input
+                type="url"
+                id="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://docs.example.com"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+              {url && !isValidUrl(url) && (
+                <p className="text-sm text-red-600 mt-1">Please enter a valid URL</p>
               )}
             </div>
 
-            {/* Status Indicator */}
-            <div className={`p-4 rounded-xl border ${
-              settings.isConfigured 
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-            }`}>
-              <div className="flex items-center">
-                {settings.isConfigured ? (
-                  <>
-                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" />
-                    <div>
-                      <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                        Documentation configured
-                      </span>
-                      {settings.lastUpdated && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                          Last updated: {settings.lastUpdated.toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-3" />
-                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                      No documentation source configured
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
             <div className="flex space-x-3">
               <button
-                onClick={handleSave}
-                disabled={!isValidUrl || isSaving || !settings.documentationUrl.trim()}
-                className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
+                type="submit"
+                disabled={!url.trim() || !isValidUrl(url) || isLoading}
+                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <Save className="w-4 h-4 mr-2" />
-                {isSaving ? 'Saving...' : 'Save Configuration'}
+                {isLoading ? 'Processing...' : 'Add Documentation'}
               </button>
-              
               <button
-                onClick={handleReset}
-                className="px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 font-medium"
+                type="button"
+                onClick={() => {
+                  setUrl('');
+                  setMessage(null);
+                }}
+                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                Reset
+                Clear
               </button>
             </div>
-          </div>
-        </div>
+          </form>
 
-        {/* Save Status */}
-        {saveStatus === 'success' && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-            <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" />
-              <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                Configuration saved successfully!
-              </span>
+          {/* Status Message */}
+          {message && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              message.type === 'success' 
+                ? 'bg-green-50 border border-green-200 text-green-800' 
+                : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
+              <p className="text-sm">{message.text}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {saveStatus === 'error' && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-            <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mr-3" />
-              <span className="text-sm font-medium text-red-800 dark:text-red-300">
-                Failed to save configuration. Please try again.
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* How it Works Section */}
-        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-6">
-          <div className="flex items-start space-x-3">
-            <div className="flex-shrink-0">
-              <Info className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-indigo-900 dark:text-indigo-300 mb-3">
-                How DocuBot Works
-              </h3>
-              <div className="space-y-2 text-sm text-indigo-800 dark:text-indigo-200">
-                <div className="flex items-start space-x-2">
-                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">1.</span>
-                  <span>Enter your documentation website URL above</span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">2.</span>
-                  <span>DocuBot crawls and indexes the content using advanced AI</span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">3.</span>
-                  <span>Ask questions in natural language and get instant, accurate answers</span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">4.</span>
-                  <span>Powered by RAG (Retrieval-Augmented Generation) for context-aware responses</span>
-                </div>
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800">
-                <p className="text-xs text-indigo-700 dark:text-indigo-300 flex items-center">
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  Supported formats: HTML documentation, API docs, guides, and tutorials
+          {/* Loading State */}
+          {isLoading && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm text-blue-800">
+                  Crawling and indexing documentation... This may take a few minutes.
                 </p>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Additional Information */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            How it works
+          </h3>
+          <div className="space-y-3 text-sm text-gray-600">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">1</div>
+              <p>Enter a URL pointing to technical documentation, API docs, or code repositories</p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">2</div>
+              <p>Our system crawls and extracts content from the documentation</p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">3</div>
+              <p>The content is processed and stored in a vector database for semantic search</p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">4</div>
+              <p>You can now chat with the documentation using natural language queries</p>
             </div>
           </div>
         </div>

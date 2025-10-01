@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/components/Navigation";
 
-const inter = Inter({
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "DocuBot - AI Documentation Assistant",
-  description: "Transform documentation websites into intelligent chat assistants for developers.",
+  title: "DocuBot - RAG Chatbot",
+  description: "Chat with technical documentation using AI",
 };
 
 export default function RootLayout({
@@ -19,13 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased`}>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-          <Navigation />
-          <main>
-            {children}
-          </main>
-        </div>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
       </body>
     </html>
   );

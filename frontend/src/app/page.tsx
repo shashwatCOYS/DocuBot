@@ -1,238 +1,223 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Copy, RotateCcw } from 'lucide-react';
-import { Message, ChatState } from '@/types';
+import { useState } from 'react';
+import Link from 'next/link';
 
-export default function ChatPage() {
-  const [chatState, setChatState] = useState<ChatState>({
-    messages: [
-      {
-        id: '1',
-        content: 'Hello! I\'m DocuBot, your AI documentation assistant. I can help you find information from your configured documentation sources. How can I assist you today?',
-        role: 'assistant',
-        timestamp: new Date(),
-      }
-    ],
-    isLoading: false,
-  });
-  
-  const [inputMessage, setInputMessage] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+interface Message {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+}
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: Date;
+  messageCount: number;
+}
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [chatState.messages]);
+export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      text: 'Hello! I\'m DocuBot, your AI assistant for technical documentation. I can help you understand code, APIs, frameworks, and more. What would you like to know?',
+      isUser: false,
+      timestamp: new Date(),
+    }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || chatState.isLoading) return;
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputMessage,
-      role: 'user',
+      text: inputValue,
+      isUser: true,
       timestamp: new Date(),
     };
 
-    setChatState(prev => ({
-      ...prev,
-      messages: [...prev.messages, userMessage],
-      isLoading: true,
-    }));
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
 
-    const currentInput = inputMessage;
-    setInputMessage('');
+    // Create new chat session if this is the first user message
+    if (messages.length === 1) {
+      const newSession: ChatSession = {
+        id: Date.now().toString(),
+        title: inputValue.length > 30 ? inputValue.substring(0, 30) + '...' : inputValue,
+        timestamp: new Date(),
+        messageCount: 1,
+      };
+      setChatHistory(prev => [newSession, ...prev]);
+    }
 
-    // Simulate API call - replace with actual API integration
+    // Simulate AI response (replace with actual API call)
     setTimeout(() => {
-      const assistantMessage: Message = {
+      const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: `I understand you're asking about: "${currentInput}". This is a demo response from DocuBot. 
-
-Once you configure your documentation URL in the settings, I'll be able to provide real, context-aware answers based on your specific documentation.
-
-For now, I can help you understand how to:
-• Set up your documentation source
-• Navigate the interface
-• Get the most out of DocuBot's features
-
-Would you like me to guide you through the setup process?`,
-        role: 'assistant',
+        text: 'I understand you\'re asking about: "' + inputValue + '". This is a simulated response. In the real implementation, this would connect to your RAG system to provide accurate answers based on the indexed documentation.',
+        isUser: false,
         timestamp: new Date(),
       };
-
-      setChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage],
-        isLoading: false,
-      }));
-    }, 1500);
+      setMessages(prev => [...prev, aiMessage]);
+      setIsLoading(false);
+    }, 1000);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const copyMessage = (content: string) => {
-    navigator.clipboard.writeText(content);
-  };
-
-  const clearChat = () => {
-    setChatState({
-      messages: [
-        {
-          id: '1',
-          content: 'Hello! I\'m DocuBot, your AI documentation assistant. How can I help you today?',
-          role: 'assistant',
-          timestamp: new Date(),
-        }
-      ],
-      isLoading: false,
-    });
+  const startNewChat = () => {
+    setMessages([
+      {
+        id: '1',
+        text: 'Hello! I\'m DocuBot, your AI assistant for technical documentation. I can help you understand code, APIs, frameworks, and more. What would you like to know?',
+        isUser: false,
+        timestamp: new Date(),
+      }
+    ]);
   };
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col">
-      {/* Chat Header */}
-      <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                DocuBot
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                AI Documentation Assistant
-              </p>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden bg-white border-r border-gray-200 flex flex-col`}>
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           <button
-            onClick={clearChat}
-            className="flex items-center space-x-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            onClick={startNewChat}
+            className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
           >
-            <RotateCcw className="w-4 h-4" />
-            <span>Clear</span>
+            + New Chat
           </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4">
+          {chatHistory.length === 0 ? (
+            <div className="text-center text-gray-500 text-sm">
+              <p>No chat history yet</p>
+              <p className="mt-1">Start a conversation to see it here</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {chatHistory.map((session) => (
+                <div
+                  key={session.id}
+                  className="p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                    {session.title}
+                  </h3>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-gray-500">
+                      {session.timestamp.toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {session.messageCount} messages
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-        {chatState.messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex space-x-4 ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {message.role === 'assistant' && (
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            )}
-            
-            <div className={`group max-w-3xl ${message.role === 'user' ? 'order-first' : ''}`}>
-              <div
-                className={`relative px-4 py-3 rounded-2xl ${
-                  message.role === 'user'
-                    ? 'bg-indigo-600 text-white ml-12'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-                }`}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200">
+          <div className="px-4 py-4 flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                <div className="text-[15px] leading-relaxed whitespace-pre-wrap">
-                  {message.content}
-                </div>
-                
-                {/* Message actions */}
-                <div className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity ${message.role === 'user' ? 'text-indigo-200' : 'text-gray-400'}`}>
-                  <button
-                    onClick={() => copyMessage(message.content)}
-                    className={`p-1 rounded hover:bg-black/10 ${message.role === 'user' ? 'hover:bg-white/20' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Timestamp */}
-              <div className={`mt-1 text-xs text-gray-500 dark:text-gray-400 ${
-                message.role === 'user' ? 'text-right mr-4' : 'ml-4'
-              }`}>
-                {message.timestamp.toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </div>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-semibold text-gray-900">DocuBot</h1>
             </div>
+            <Link 
+              href="/settings"
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Settings
+            </Link>
+          </div>
+        </header>
 
-            {message.role === 'user' && (
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+        {/* Chat Container */}
+        <div className="flex-1 flex flex-col h-[calc(100vh-80px)]">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    message.isUser
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white border border-gray-200 text-gray-900'
+                  }`}
+                >
+                  <p className="text-sm">{message.text}</p>
+                  <p className={`text-xs mt-1 ${
+                    message.isUser ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {message.timestamp.toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-200 rounded-lg px-4 py-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        ))}
-        
-        {chatState.isLoading && (
-          <div className="flex space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-2xl">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-indicator"></div>
-                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-indicator"></div>
-                <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-indicator"></div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
 
-      {/* Input Area */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative">
-            <textarea
-              ref={inputRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Message DocuBot..."
-              className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-              rows={1}
-              style={{ minHeight: '44px', maxHeight: '120px' }}
-              disabled={chatState.isLoading}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || chatState.isLoading}
-              className="absolute right-2 bottom-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
-            Press Enter to send, Shift+Enter for new line
+          {/* Input Form */}
+          <div className="border-t border-gray-200 bg-white p-4">
+            <form onSubmit={handleSendMessage} className="flex space-x-2">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Ask me anything about the documentation..."
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isLoading}
+                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Send
+              </button>
+            </form>
           </div>
         </div>
       </div>
