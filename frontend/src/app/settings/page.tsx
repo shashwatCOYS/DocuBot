@@ -17,18 +17,26 @@ export default function Settings() {
     setMessage(null);
 
     try {
-      // Simulate API call to process URL
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const resp = await fetch(`${apiBase}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to index document');
+      }
       
       setMessage({
         type: 'success',
-        text: `Successfully added "${url}" to the knowledge base. The documentation is being indexed and will be available for chat shortly.`
+        text: data.message || `Successfully added "${url}" to the knowledge base. The documentation is being indexed and will be available for chat shortly.`
       });
       setUrl('');
     } catch (error) {
       setMessage({
         type: 'error',
-        text: 'Failed to process the URL. Please check if the URL is accessible and try again.'
+        text: (error as Error).message || 'Failed to process the URL. Please check if the URL is accessible and try again.'
       });
     } finally {
       setIsLoading(false);

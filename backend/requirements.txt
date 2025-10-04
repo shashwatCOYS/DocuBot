@@ -12,3 +12,8 @@ python-multipart
 pydantic-settings
 httpx
 aiofiles
+aiohttp
+weaviate-client
+redis
+asyncio
+pinecone
