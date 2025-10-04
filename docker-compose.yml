@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # Context7 MCP Server
+  context7-mcp:
+    image: node:18-alpine
+    container_name: docubot-context7-mcp
+    working_dir: /app
+    command: ["npx", "@upstash/context7-mcp", "--api-key", "${CONTEXT7_API_KEY}"]
+    ports:
+      - "7778:7777"
+    environment:
+      - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
+    networks:
+      - docubot-network
+    restart: unless-stopped
+
+  # Pinecone MCP Server (Direct client integration)
+  # pinecone-mcp:
+  #   image: node:18-alpine
+  #   container_name: docubot-pinecone-mcp
+  #   working_dir: /app
+  #   command: ["npx", "-y", "@modelcontextprotocol/server-pinecone"]
+  #   ports:
+  #     - "7779:7777"
+  #   environment:
+  #     - PINECONE_API_KEY=${PINECONE_API_KEY}
+  #     - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+  #   networks:
+  #     - docubot-network
+  #   restart: unless-stopped
+
+  # Vector Database (Pinecone alternative - Weaviate)
+  weaviate:
+    image: semitechnologies/weaviate:latest
+    container_name: docubot-weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      - QUERY_DEFAULTS_LIMIT=25
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - DEFAULT_VECTORIZER_MODULE=none
+      - ENABLE_MODULES=text2vec-transformers
+      - CLUSTER_HOSTNAME=node1
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    networks:
+      - docubot-network
+    restart: unless-stopped
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: docubot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - docubot-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # DocuBot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docubot-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY}
+      - EXA_API_KEY=${EXA_API_KEY}
+      - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+      - PINECONE_MCP_BASE_URL=http://pinecone-mcp:7777
+      - USE_PINECONE=${USE_PINECONE}
+      - WEAVIATE_URL=http://weaviate:8080
+      - REDIS_URL=redis://redis:6379
+      - USE_MCP_FOR_CRAWLING=false
+      - MAX_CRAWL_DEPTH=10
+      - MAX_CONCURRENT_REQUESTS=10
+      - MAX_PAGES_PER_DOMAIN=1000
+      - SAME_DOMAIN_ONLY=true
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/chroma_db
+    networks:
+      - docubot-network
+    depends_on:
+      - context7-mcp
+      - weaviate
+      - redis
+    restart: unless-stopped
+
+  # DocuBot Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: docubot-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - docubot-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  weaviate_data:
+  redis_data:
+  backend_data:
+
+networks:
+  docubot-network:
+    driver: bridge
+
