@@ -448,3 +448,4 @@ class EnhancedRAGSystem:
         if self.vector_db:
             self.vector_db.close()
 
+

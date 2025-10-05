@@ -320,3 +320,4 @@ class VectorDatabase:
         """Destructor to ensure connection is closed."""
         self.close()
 
+
