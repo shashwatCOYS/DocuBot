@@ -68,7 +68,7 @@ class CerebrasClient:
                 "stream": False
             }
             
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=self.headers,
@@ -148,7 +148,7 @@ Answer:"""
             Dict containing connection status
         """
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 response = await client.get(
                     f"{self.base_url}/models",
                     headers=self.headers

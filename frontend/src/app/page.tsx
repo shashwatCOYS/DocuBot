@@ -1,14 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import ThemeToggle from './components/ThemeToggle';
+import MessageBubble from '../components/MessageBubble';
+import ChatInput from '../components/ChatInput';
+import LoadingIndicator from '../components/LoadingIndicator';
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
+  sources?: Array<{
+    content: string;
+    metadata: {
+      source_url: string;
+      content_type?: string;
+      has_markdown?: boolean;
+    };
+    similarity_score: number;
+    rank: number;
+  }>;
 }
 
 interface ChatSession {
@@ -22,65 +35,96 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m DocuBot, your AI assistant for technical documentation. I can help you understand code, APIs, frameworks, and more. What would you like to know?',
+      text: 'Hello! I\'m **DocuBot**, your AI assistant for technical documentation. I can help you understand code, APIs, frameworks, and more.\n\n## What I can help with:\n- 📚 **Documentation**: Explain concepts, APIs, and frameworks\n- 💻 **Code Examples**: Show you how to implement features\n- 🔍 **Search**: Find specific information across documentation\n- 🚀 **Best Practices**: Guide you through implementation patterns\n\nWhat would you like to know?',
       isUser: false,
       timestamp: new Date(),
     }
   ]);
-  const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputValue,
+      text: message,
       isUser: true,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
     setIsLoading(true);
 
     // Create new chat session if this is the first user message
     if (messages.length === 1) {
       const newSession: ChatSession = {
         id: Date.now().toString(),
-        title: inputValue.length > 30 ? inputValue.substring(0, 30) + '...' : inputValue,
+        title: message.length > 30 ? message.substring(0, 30) + '...' : message,
         timestamp: new Date(),
         messageCount: 1,
       };
       setChatHistory(prev => [newSession, ...prev]);
     }
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
+    // Call the actual DocuBot API
+    try {
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          session_id: messages.length === 1 ? Date.now().toString() : undefined
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'I understand you\'re asking about: "' + inputValue + '". This is a simulated response. In the real implementation, this would connect to your RAG system to provide accurate answers based on the indexed documentation.',
+        text: data.response,
+        isUser: false,
+        timestamp: new Date(data.timestamp),
+        sources: data.sources || [],
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error calling DocuBot API:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Sorry, I encountered an error while processing your request. Please make sure the DocuBot backend is running and try again.',
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const startNewChat = () => {
     setMessages([
       {
         id: '1',
-        text: 'Hello! I\'m DocuBot, your AI assistant for technical documentation. I can help you understand code, APIs, frameworks, and more. What would you like to know?',
+        text: 'Hello! I\'m **DocuBot**, your AI assistant for technical documentation. I can help you understand code, APIs, frameworks, and more.\n\n## What I can help with:\n- 📚 **Documentation**: Explain concepts, APIs, and frameworks\n- 💻 **Code Examples**: Show you how to implement features\n- 🔍 **Search**: Find specific information across documentation\n- 🚀 **Best Practices**: Guide you through implementation patterns\n\nWhat would you like to know?',
         isUser: false,
         timestamp: new Date(),
       }
     ]);
   };
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex">
@@ -170,59 +214,24 @@ export default function Home() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((message) => (
-              <div
+              <MessageBubble
                 key={message.id}
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.isUser
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-900 dark:text-gray-100'
-                  }`}
-                >
-                  <p className="text-sm">{message.text}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                  }`}>
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
+                message={message.text}
+                isUser={message.isUser}
+                timestamp={message.timestamp.toISOString()}
+                sources={message.sources}
+              />
             ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {isLoading && <LoadingIndicator />}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input Form */}
-          <div className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-            <form onSubmit={handleSendMessage} className="flex space-x-2">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Ask me anything about the documentation..."
-                className="flex-1 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                disabled={!inputValue.trim() || isLoading}
-                className="bg-blue-500 dark:bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Send
-              </button>
-            </form>
-          </div>
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            disabled={isLoading}
+            placeholder="Ask me anything about the documentation..."
+          />
         </div>
       </div>
     </div>
